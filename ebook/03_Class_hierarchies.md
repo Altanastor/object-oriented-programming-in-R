@@ -179,13 +179,7 @@ plot(c(0, 10), c(0, 10),
 draw(point(5,5))
 draw(rectangle(2.5, 2.5, 7.5, 7.5))
 draw(circle(5, 5, 4))
-```
 
-```
-## Error in loadNamespace(name): there is no package called 'plotrix'
-```
-
-```r
 corners <- composite(point(2.5, 2.5), point(2.5, 7.5),
                      point(7.5, 2.5), point(7.5, 7.5))
 draw(corners)

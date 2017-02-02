@@ -157,10 +157,6 @@ which, of course, doesn't prevent us from specifying other values as arguments w
 
 The type we give slots when we specify them puts type constraints on objects. When we declared that the `n` slot in `NaturalNumber` should be an integer we constrained the values we can assign to that slot. If we try to assign a `numeric` instead, we will get an error.
 
-```{r}
-n@n <- 1.2
-```
-
 For natural numbers, we do not want negative integers to be included, but since negative integers are still integers, there is no constraint to assigning such a value.
 
 ```{r}
@@ -182,9 +178,13 @@ NaturalNumber <- setClass("NaturalNumber",
                           })
 ```                          
 
-```{r}
+With this validity checking, attempting to write
+
+```r
 n <- NaturalNumber(n = as.integer(-1))
 ```
+
+will result in an error.
 
 The validity test is only done when creating objects, though. We can modify objects and put them in an invalid state.
 
@@ -192,11 +192,13 @@ The validity test is only done when creating objects, though. We can modify obje
 n@n <- as.integer(-1)
 ```
 
-This behaviour is necessary since, when modifying an object, it is likely to be in an invalid state until we are done modifying it. At any point when you are done modifying an object, though, you can call the `validObject` function to check the validity again.
+This behaviour is necessary since, when modifying an object, it is likely to be in an invalid state until we are done modifying it. At any point when you are done modifying an object, though, you can call the `validObject` function to check the validity again using
 
-```{r}
+```r
 validObject(n)
 ```
+
+This would, of course, fail in this case, since we just left `n` in an invalid state.
 
 ## Generic functions and class hierarchies
 
@@ -340,14 +342,7 @@ Let's implement a non-functioning stack. We can make this class for the list-bas
 ListStack <- setClass("ListStack", contains = "Stack")
 ```
 
-Even without an implementation, we can create an object of type `ListStack`. The `Stack` class is abstract because we didn't add any slots to it, but the `ListStack` is not interpreted as abstract, even though it doesn't add any slots either because it `contains` a superclass. If we call `pop` on a `ListStack`, however, we get an error, and rightly so.
-
-```{r}
-stack <- ListStack()
-pop(stack)
-```
-
-We would expect to get an error here, and it probably isn't hard to figure out, from the error message, what is wrong. But if either `Stack` implemented a version of `pop`, or we had set a default function, we would instead be calling that, which would be an error but might not invoke an error message.
+Even without an implementation, we can create an object of type `ListStack`. The `Stack` class is abstract because we didn't add any slots to it, but the `ListStack` is not interpreted as abstract, even though it doesn't add any slots either because it `contains` a superclass. If we would call `pop` on a `ListStack`, however, we get an error, and rightly so. We would expect to get an error here, and in this case it probably isn't hard to figure out, from the error message, what is wrong. The error would tell us that R was unable to find an inherited method for the function. But if either `Stack` implemented a version of `pop`, or we had set a default function, we would instead be calling that, which would be an error but might not invoke an error message.
 
 We can specify that all sub-classes of `Stack` must implement the stack interface using the function `requireMethods`:
 

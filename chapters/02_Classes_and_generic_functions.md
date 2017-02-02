@@ -120,8 +120,12 @@ empty_vector_stack <- function() {
   make_vector_stack(vector("numeric"))
 }
 top.vector_stack <- function(stack) stack[1]
-pop.vector_stack <- function(stack) make_vector_stack(stack[-1])
-push.vector_stack <- function(stack, element) make_vector_stack(c(element, stack))
+pop.vector_stack <- function(stack) {
+  make_vector_stack(stack[-1])
+}
+push.vector_stack <- function(stack, element) {
+  make_vector_stack(c(element, stack))
+}
 is_empty.vector_stack <- function(stack) length(stack) == 0
 ```
 
@@ -213,6 +217,7 @@ ggplot(times) +
   geom_boxplot(aes(x = as.factor(n), 
                    y = Time, 
                    fill = Implementation)) +
+  scale_fill_grey() +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank()) +
@@ -278,9 +283,15 @@ pop_until <- function(stack, element) {
 If you cannot achieve what you need using the interface, you should instead extend it. You can always write new generic functions that work on a class.
 
 ```{r}
-contains <- function(stack, element) UseMethod("contains")
-contains.default <- function(stack, element) .NotYetImplemented()
-contains.vector_stack <- function(stack, element) element %in% stack
+contains <- function(stack, element) {
+  UseMethod("contains")
+}
+contains.default <- function(stack, element) {
+  .NotYetImplemented()
+}
+contains.vector_stack <- function(stack, element) {
+  element %in% stack
+}
 ```
 
 You do not need to implement concrete functions for all implementations of an abstract data type to add a generic function. If you have a default implementation that gives you an error---and you have proper unit tests for any code you use---you will get an error if your algorithm attempts to use the function if it isn’t implemented yet, and you can add it at that point.
@@ -338,7 +349,8 @@ sort_list <- function(x) {
   end <- length(x)
   middle <- end %/% 2
   
-  merge_lists(sort_list(x[start:middle]), sort_list(x[(middle+1):end]))
+  merge_lists(sort_list(x[start:middle]), 
+              sort_list(x[(middle+1):end]))
 }
 ```
 

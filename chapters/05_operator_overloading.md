@@ -176,7 +176,8 @@ symbolic_unit <- function(nominator, denominator = "") {
   non_empty <- function(x) x != ""
   nominator <- sort(Filter(non_empty, nominator))
   denominator <- sort(Filter(non_empty, denominator))
-  structure(list(nominator = nominator, denominator = denominator),
+  structure(list(nominator = nominator, 
+                 denominator = denominator),
             class = "symbolic_unit")
 }
 ```
@@ -206,8 +207,9 @@ Comparing two symbolic units involves checking that nominator and denominator ar
 
 ```{r}
 `==.symbolic_unit` <- function(x, y) {
-  if (!(inherits(x, "symbolic_unit") && inherits(y, "symbolic_unit")))
-      stop("Comparison only defined when both x and y are both symbolic_units")
+  if (!(inherits(x, "symbolic_unit") && 
+      inherits(y, "symbolic_unit")))
+      stop("Incompatible types")
   return(identical(x$nominator, y$nominator) && 
            identical(x$denominator, y$denominator))
 }
@@ -268,7 +270,8 @@ Ops.units <- function(e1, e2) {
   su1 <- attr(e1, "units")
   su2 <- if (!missing(e2)) attr(e2, "units") else NULL
   
-  if (.Generic %in% c("+", "-", "==", "!=", "<", "<=", ">=", ">")) {
+  if (.Generic %in% c("+", "-", "==", "!=", 
+                      "<", "<=", ">=", ">")) {
     if (!is.null(su1) && !is.null(su2) && su1 != su2)
       stop("Incompatible units")
     su <- ifelse(!is.null(su1), su1, su2)
@@ -287,8 +290,8 @@ Ops.units <- function(e1, e2) {
   }
   
   # For the remaining operators we don't really have a good
-  # way of treating the units so we strip that info and go back
-  # to numeric values
+  # way of treating the units so we strip that info and go
+  # back to numeric values
   e1 <- unclass(e1)
   e2 <- unclass(e2)
   attributes(e1) <- attributes(e2) <- NULL

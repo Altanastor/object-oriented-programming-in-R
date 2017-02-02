@@ -20,11 +20,13 @@ VectorStack <- R6Class("VectorStack",
                            private$elements[1]
                          },
                          pop = function() {
-                           private$elements <- private$elements[-1]
+                           private$elements <- 
+                             private$elements[-1]
                            invisible(self)
                          },
                          push = function(e) {
-                           private$elements <- c(e, private$elements)
+                           private$elements <-
+                             c(e, private$elements)
                            invisible(self)
                          },
                          is_empty = function() {
@@ -201,17 +203,13 @@ a$y <- 12
 a$y
 ```
 
-In general, you cannot create new attributes to R6 objects just by assigning to `$` indexed values, as you can in S3. Attributes must be defined in the class definition.
+In general, you cannot create new attributes to R6 objects just by assigning to `$` indexed values, as you can in S3. Attributes must be defined in the class definition. If you tried something like this, you would get an error:
 
-```{r}
+```r
 a$z <- "foo"
 ```
 
-You can modify public data attributes, as we saw above for `x`, but don't try to be clever and modify methods. It is really bad practise to change methods for a single object, to begin with, but luckily it is also "verboten" in R6, and you will get you an error.
-
-```{r}
-stack$pop <- NULL
-```
+You can modify public data attributes, as we saw above for `x`, but don't try to be clever and modify methods. It is really bad practise to change methods for a single object, to begin with, but luckily it is also "verboten" in R6, and you would get you an error if you tried.
 
 In general, it is considered good practice to keep data private and methods that are part of a class interface public. There are several reasons for this: If data is only modified through a class' methods then you have more control over the state of objects and can ensure that an object is always in a valid state before and after all method calls, but, perhaps more importantly, keeping the representation of objects hidden away limits the dependency between a class and code that uses the class. If any code can access the inner workings of objects, there is a good chance that eventually a lot of code will. This means that you will have to modify all the uses of a class if you change how objects of the class are represented. If on the other hand, the code only accesses objects through a public interface, then you can modify all the private attributes as much as you want as long as you keep the public interface unchanged. You will, of course, have to modify some of the class' methods, but changes will be limited to that.
 

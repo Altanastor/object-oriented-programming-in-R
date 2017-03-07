@@ -4,9 +4,10 @@ CHAPTERS := 000_header.md \
 			02_Classes_and_generic_functions.md \
 			03_Class_hierarchies.md \
 			04_Implementation_reuse.md \
-			05_operator_overloading.md \
-			06_S4_classes.md \
-			07_R6_classes.md \
+			05_Statistical_models.md \
+			06_operator_overloading.md \
+			07_S4_classes.md \
+			08_R6_classes.md \
 			99_conclusions.md
 
 SOURCE_CHAPTERS := $(foreach chapter,$(CHAPTERS),chapters/$(chapter))

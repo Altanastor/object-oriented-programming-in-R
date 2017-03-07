@@ -2,7 +2,7 @@
 PANDOC := pandoc
 
 PANDOC_OPTS_ALL :=  -S --toc \
-					--chapters \
+					--top-level-division=chapter \
 					--filter pandoc-fignos
 PANDOC_EPUB_OPTS := $(PANDOC_OPTS_ALL) \
 					--default-image-extension=png \

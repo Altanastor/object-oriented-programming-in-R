@@ -92,5 +92,136 @@ w <- sample_weights(5, posterior)
 plot_lines(w)
 ```
 
-## Model matrices
+```{r, echo=FALSE}
+rm(x) ; rm(y)
+```
+
+The way we update the distribution of weights here from the prior distribution to the posterior doesn't require that the prior distribution is the exact one we created using the variable `a`. Any distribution can be used as the prior, and in Bayesian statistics it would not be unusual to iteratively update a posterior distribution as more and more data is added. We can start with the prior we just created, fit it to some data to get a posterior, and then if we get more data, use the first posterior as a prior for fitting more data and getting a new posterior that captures the knowledge we have gained from seeing all the data. If we have all the data from the get go, there is no particular benefit to doing this, but in an application where data comes streaming, we can exploit this to quickly update our knowledge each time new data is available.
+
+Since this book is not about Bayesian statistics, though, and since we only use Bayesian linear regression as an example of writing a new statistical model, we will not explore this further here.
+
+### Model matrices
+
+The `X` matrix we used when fitting the posterior is an example of a so-called model matrix or design matrix. Using a matrix this way, to fit a response variable, `y`, to some expression, here `1 + x` (in a sense, we used the rows `c(1, x[i])`), is a general approach to fitting data. Linear models are called *linear* not because we fit data with a line, but because the weights, the `w` vector we fit, is used linearly, in the mathematical sense, in the fitted model. If we have fitted the weights to the vector `w`, the line we have fitted is given by `X %*% w`. That is, our line is the matrix product of the model matrix and the weight vector. The result is a line because `X` has the form we gave it, but it doesn't really have to represent a line for the model to be a linear model. We can transform the input data, here our vector `x`, in any way we want to, before we fit the model. You might have used log-transformations before, or fitted data to a polynomial, and those would also be examples of linear models.
+
+You can fit various kinds of transformed data using the function we wrote above if you just construct the `X` matrix in different ways. As long as each data point you have becomes a row in `X`, it doesn't matter what you do. The same mathematics work. To fit a quadratic equation to the data instead of a line, you just have to make the i'th row of `X` be `c(1, x[i], x[i]**2)`, for example.
+
+In R, you have a very powerful mechanism for constructing model matrices from formulas. Whenever you have used a formula such as `y ~ x + y` to fit `y` to two variables, `x` and `z`, you have used this feature. The formula is translated into a model matrix, and once you have the matrix, the code that does the model fitting doesn't need to know anything else about your data.
+
+The function you use to translate a formula into a model matrix is called `model.matrix`. Even though it has a dot in its name, it isn't a generic function. It just has an unfortunate name for historical reasons. 
+
+The function will take a formula as input and produce a model matrix. It will find the values for the variables in the formula by looking in its scope, and we can use it like this:
+
+```{r}
+x <- rnorm(5)
+y <- 1.2 + 2 * x + rnorm(5)
+model.matrix(y ~ x)
+```
+
+Relying on global variables like this is risky coding, though, so we often put our data in a data frame instead.
+
+```{r}
+d <- data.frame(x, y)
+```
+
+If we do this, we can provide a data frame to the `model.matrix` function, and it will get the variables from there.
+
+```{r}
+model.matrix(y ~ x, data = d)
+```
+
+If the formula uses variables that are not found in the data frame, the `model.matrix` will still find the missing variables in the calling scope, but this is really risky coding, so you should avoid this.
+
+The formula determines how the model matrix is constructed. The formula `y ~ x` gives us the model matrix we used above, where we have 1 to capture the intercept in the first column, and we have the `x` values in the second column to capture the incline of the line. We can remove the intercept using the formula `y ~ x - 1`:
+
+```{r}
+model.matrix(y ~ x - 1, data = d)
+```
+
+We can also add terms, for example, we can fit a quadratic formula to the data by constructing this model matrix:
+
+```{r}
+model.matrix(y ~ x + I(x**2), data = d)
+```
+
+Here, we need to wrap the squared `x` in the function `I` to get R to actually use the squared values of `x`. Inside formulae, products are interpreted as interaction, but by wrapping `x**2` in `I` we make it the square of the `x` values explicitly.
+
+The model matrix doesn't include the response variable, `y`, so we cannot get that from it. Instead, we can use a related function, `model.frame`, that also gives us a column for the response.
+
+```{r}
+model.frame(y ~ x + I(x**2), data = d)
+```
+
+You can then extract the response variable using the function `model.response`, like this:
+
+```{r}
+model.response(model.frame(y ~ x + I(x**2), data = d))
+```
+
+With that machinery in place, we can generalise our distributions and model fitting to work with general formulae. We can write the prior function like this:
+
+```{r}
+prior_distribution <- function(formula, a, data) {
+  n <- ncol(model.matrix(formula, data = data))
+  mu = rep(0, n)
+  S = diag(1/a, nrow = n, ncol = n)
+  weight_distribution(mu, S)
+}
+```
+
+Ideally, a prior shouldn't depend on any data, but the form of a model matrix actually does depend on the type of the data we use. Numerical data will be represented as a single column in the model matrix, but factors are handled as a binary vector for each level in a formula, so we do need to know about what kind of data we are going to need. We could have added `n` as a parameter here, and made the function independent of any data, but I chose to include a data frame as another solution. We don't use the actual data, though, we just use it to get the number of columns in the model frame.
+
+The function for fitting the data changes less, though. It just uses the `model.matrix` function to construct the model matrix instead of the explicit construction we did earlier:
+
+```{r}
+fit_posterior <- function(formula, b, prior, data) {
+  mu0 = prior$mu
+  S0 = prior$S
+  
+  X = model.matrix(formula, data = data)
+  
+  S = solve(S0 + b * t(X) %*% X)
+  mu = S %*% (solve(S0) %*% mu0 + b * t(X) %*% y)
+  
+  weight_distribution(mu = mu, S = S)
+}
+```
+
+With that in place, we can fit a line as before, but now using a formula:
+
+```{r}
+d <- {
+  x <- rnorm(5)
+  y <- 1.2 + 2 * x + rnorm(5)
+  data.frame(x = x, y = y)
+}
+
+prior <- prior_distribution(y ~ x, 1, d)
+posterior <- fit_posterior(y ~ x, 1, prior, d)
+posterior
+```
+
+If we, instead, want to fit a quadratic function, we do not need to change any of the functions, we can just provide a different formula:
+
+```{r}
+prior <- prior_distribution(y ~ x + I(x**2), 1, d)
+posterior <- fit_posterior(y ~ x + I(x**2), 1, prior, d)
+posterior
+```
+
+### Predicting response variables
+
+```{r}
+rm(x) ; rm(y)
+```
+
+```{r}
+model.matrix(y ~ x + I(x**2), data = d)
+dd <- data.frame(x = rnorm(5))
+model.matrix(y ~ x + I(x**2), data = dd)
+
+model.matrix(delete.response(terms(y ~ x)), data = dd)
+```
+
+
 

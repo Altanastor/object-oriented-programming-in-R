@@ -46,3 +46,52 @@ plot(x, y)
 posterior <- fit_posterior(x, y, 1, prior)
 w <- sample_weights(5, posterior)
 plot_lines(w)
+
+
+x <- rnorm(5)
+y <- 1.2 + 2 * x + rnorm(5)
+d <- data.frame(x, y)
+model.matrix(y ~ x, data = d)
+model.matrix(y ~ x - 1, data = d)
+model.matrix(y ~ x + I(x**2), data = d)
+
+model.frame(y ~ x + I(x**2), data = d)
+model.response(model.frame(y ~ x + I(x**2), data = d))
+
+rm(x) ; rm(y)
+model.matrix(y ~ x + I(x**2), data = d)
+dd <- data.frame(x = rnorm(5))
+model.matrix(y ~ x + I(x**2), data = dd)
+
+model.matrix(delete.response(terms(y ~ x)), data = dd)
+
+
+
+prior_distribution <- function(formula, a, data) {
+  n <- ncol(model.matrix(formula, data = data))
+  mu = rep(0, n)
+  S = diag(1/a, nrow = 2, ncol = 2)
+  weight_distribution(mu, S)
+}
+
+fit_posterior <- function(formula, b, prior, data) {
+  mu0 = prior$mu
+  S0 = prior$S
+  
+  X = model.matrix(formula, data = data)
+  
+  S = solve(S0 + b * t(X) %*% X)
+  mu = S %*% (solve(S0) %*% mu0 + b * t(X) %*% y)
+  
+  weight_distribution(mu = mu, S = S)
+}
+
+d <- {
+  x <- rnorm(5)
+  y <- 1.2 + 2 * x + rnorm(5)
+  data.frame(x = x, y = y)
+}
+
+prior <- prior_distribution(y ~ x, 1, d)
+posterior <- fit_posterior(y ~ x, 1, prior, d)
+posterior

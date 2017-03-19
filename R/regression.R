@@ -70,9 +70,12 @@ model.matrix(delete.response(terms(y ~ x)), data = dd)
 
 
 prior_distribution <- function(formula, a, data) {
-  n <- ncol(model.matrix(formula, data = data))
+  X <- model.matrix(formula, data = data)
+  
+  n <- ncol(X)
   mu = rep(0, n)
-  S = diag(1/a, nrow = 2, ncol = 2)
+  S = diag(1/a, nrow = n, ncol = n)
+  
   weight_distribution(mu, S)
 }
 
@@ -116,7 +119,8 @@ blm <- function(formula, b, data, prior = NULL, a = NULL) {
   posterior <- fit_posterior(formula, b, prior, data)
   
   structure(
-    list(data = model.frame(formula, data),
+    list(formula = formula,
+         data = model.frame(formula, data),
          dist = posterior,
          call = match.call()),
     class = "blm"
@@ -127,8 +131,41 @@ print.blm <- function(x, ...) {
   print(x$call)
 }
 
-(model <- blm(y ~ x, a = 1, b = 1, data = d))
+(model <- blm(y ~ x + I(x**2), a = 1, b = 1, data = d))
 
-#predict.blm <- function(object, ...) {
-#  
-#}
+coef.blm <- function(object, ...) {
+  object$dist$mu
+}
+
+coef(model)
+
+
+confint.blm <- function(object, parm, level = 0.95, ...) {
+  if (missing(parm)) {
+    parm <- rownames(object$dist$mu)
+  }
+  
+  means <- object$dist$mu[parm,]
+  sds <- sqrt(diag(object$dist$S)[parm])
+  
+  lower_q <- qnorm(p = (1-level)/2, 
+                   mean = means, 
+                   sd = sds,
+                   lower.tail = F)
+  upper_q <- qnorm(p = 1 - (1-level)/2, 
+                   mean = means, 
+                   sd = sds,
+                   lower.tail = F)
+  
+  quantiles <- cbind(lower_q, upper_q)
+  quantile_names <- paste(
+    100 * c((1-level)/2, 1 - (1 -level)/2),
+    "%",
+    sep = ""
+    )
+  colnames(quantiles) <- quantile_names
+  
+  quantiles
+}
+
+confint(model)

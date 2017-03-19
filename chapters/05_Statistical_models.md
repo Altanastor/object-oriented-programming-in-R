@@ -212,6 +212,7 @@ posterior <- fit_posterior(y ~ x + I(x**2), 1, prior, d)
 posterior
 ```
 
+
 ## Constructing fitted model objects
 
 Now, we want to wrap fitted models in a class so we can write a constructor for fitting data. For fitted models, it is traditional to include the formula, the data, and the function call together with the fitted model, so we will put those as attributes in the objects. The constructor could look like this:
@@ -259,11 +260,62 @@ We have to match the parameters of the generic function, which is why the argume
 Now, we can fit data and get a `blm` object like this:
 
 ```{r}
-blm(y ~ x, a = 1, b = 1, data = d)
+(model <- blm(y ~ x + I(x**2), a = 1, b = 1, data = d))
 ```
 
 
 ## Coefficients and confidence intervals
+
+Once we have a fitted model, we might want to get the fitted values. This is traditionally done using the generic function `coef` that should simply return those. For the Bayesian linear regression model, the fitted values are really whole distributions, but we can take the mean values as point estimates and return those, and so implement the `coef` function like this:
+
+```{r}
+coef.blm <- function(object, ...) {
+  t(object$dist$mu)
+}
+coef(model)
+```
+
+Here, I transform the mean matrix to get the coefficients in a form similar to what you would get with a traditional linear model, as fitted with the function `lm`, but other than that, the function just returns the means.
+
+For classical frequentist models, we often also want the confidence intervals for the parameters, and the traditional way to get those is using the `confint` function. This function has the signature:
+
+```r
+confint(object, parm, level = 0.95, ...)
+```
+
+The `object` parameter is the fitted model, the `parm` contains the parameters we want the confidence intervals for, and if it is missing we should return all the model parameters, and the `level` parameter specify at which confidence levels we want the intervals.
+
+Again, for a Bayesian model, we have whole distributions and not just confidence intervals, but we can get something similar for our model by getting the quantiles from the marginal distributions for each parameter. The parameters are normally distributed and we can get the means and standard deviations from the means and covariance matrix, respectively. After that, we can get the quantiles using the `qnorm` function and construct intervals like this:
+
+```{r}
+confint.blm <- function(object, parm, level = 0.95, ...) {
+  if (missing(parm)) {
+    parm <- rownames(object$dist$mu)
+  }
+  
+  means <- object$dist$mu[parm,]
+  sds <- sqrt(diag(object$dist$S)[parm])
+  
+  lower_q <- qnorm(p = (1-level)/2, 
+                   mean = means, 
+                   sd = sds)
+  upper_q <- qnorm(p = 1 - (1-level)/2, 
+                   mean = means, 
+                   sd = sds)
+  
+  quantiles <- cbind(lower_q, upper_q)
+  quantile_names <- paste(
+    100 * c((1-level)/2, 1 - (1 -level)/2),
+    "%",
+    sep = ""
+    )
+  colnames(quantiles) <- quantile_names
+  
+  quantiles
+}
+
+confint(model)
+```
 
 
 
@@ -303,3 +355,4 @@ model.matrix(delete.response(terms(y ~ x)), data = dd)
 ```
 
 
+## Plotting

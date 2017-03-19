@@ -1,6 +1,6 @@
 
 weight_distribution <- function(mu, S) {
-  list(mu = mu, S = S)
+  structure(list(mu = mu, S = S), class = "wdist")
 }
   
 prior_distribution <- function(a) {
@@ -61,7 +61,9 @@ model.response(model.frame(y ~ x + I(x**2), data = d))
 rm(x) ; rm(y)
 model.matrix(y ~ x + I(x**2), data = d)
 dd <- data.frame(x = rnorm(5))
-model.matrix(y ~ x + I(x**2), data = dd)
+#model.matrix(y ~ x + I(x**2), data = dd)
+
+
 
 model.matrix(delete.response(terms(y ~ x)), data = dd)
 
@@ -75,13 +77,13 @@ prior_distribution <- function(formula, a, data) {
 }
 
 fit_posterior <- function(formula, b, prior, data) {
-  mu0 = prior$mu
-  S0 = prior$S
+  mu0 <- prior$mu
+  S0 <- prior$S
   
-  X = model.matrix(formula, data = data)
+  X <- model.matrix(formula, data = data)
   
-  S = solve(S0 + b * t(X) %*% X)
-  mu = S %*% (solve(S0) %*% mu0 + b * t(X) %*% y)
+  S <- solve(S0 + b * t(X) %*% X)
+  mu <- S %*% (solve(S0) %*% mu0 + b * t(X) %*% y)
   
   weight_distribution(mu = mu, S = S)
 }
@@ -95,3 +97,38 @@ d <- {
 prior <- prior_distribution(y ~ x, 1, d)
 posterior <- fit_posterior(y ~ x, 1, prior, d)
 posterior
+
+blm <- function(formula, b, data, prior = NULL, a = NULL) {
+  
+  if (is.null(prior)) {
+    if (is.null(a)) stop("Without a prior you must provide a.")
+    prior <- prior_distribution(formula, a, data)
+    
+  } else {
+    if (inherits(prior, "blm")) {
+      prior <- prior$prior
+    }
+  }
+  if (!inherits(prior, "wdist")) {
+    stop("The provided prior does not have the expected type.")
+  }
+  
+  posterior <- fit_posterior(formula, b, prior, data)
+  
+  structure(
+    list(data = model.frame(formula, data),
+         dist = posterior,
+         call = match.call()),
+    class = "blm"
+  )
+}
+
+print.blm <- function(x, ...) {
+  print(x$call)
+}
+
+(model <- blm(y ~ x, a = 1, b = 1, data = d))
+
+#predict.blm <- function(object, ...) {
+#  
+#}

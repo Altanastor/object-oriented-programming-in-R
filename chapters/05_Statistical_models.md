@@ -18,7 +18,7 @@ We can represent a distribution over weights as the mean and covariance matrix o
 
 ```{r}
 weight_distribution <- function(mu, S) {
-  list(mu = mu, S = S)
+  structure(list(mu = mu, S = S), class = "wdist")
 }
   
 prior_distribution <- function(a) {
@@ -27,6 +27,8 @@ prior_distribution <- function(a) {
   weight_distribution(mu, S)
 }
 ```
+
+We give the weights distribution a class, just to distinguish them from plain lists, but otherwise there is nothing special to see here.
 
 If we wish to sample from this distribution we can use the `mvrnorm` function from the `MASS` package.
 
@@ -100,7 +102,8 @@ The way we update the distribution of weights here from the prior distribution t
 
 Since this book is not about Bayesian statistics, though, and since we only use Bayesian linear regression as an example of writing a new statistical model, we will not explore this further here.
 
-### Model matrices
+
+## Model matrices
 
 The `X` matrix we used when fitting the posterior is an example of a so-called model matrix or design matrix. Using a matrix this way, to fit a response variable, `y`, to some expression, here `1 + x` (in a sense, we used the rows `c(1, x[i])`), is a general approach to fitting data. Linear models are called *linear* not because we fit data with a line, but because the weights, the `w` vector we fit, is used linearly, in the mathematical sense, in the fitted model. If we have fitted the weights to the vector `w`, the line we have fitted is given by `X %*% w`. That is, our line is the matrix product of the model matrix and the weight vector. The result is a line because `X` has the form we gave it, but it doesn't really have to represent a line for the model to be a linear model. We can transform the input data, here our vector `x`, in any way we want to, before we fit the model. You might have used log-transformations before, or fitted data to a polynomial, and those would also be examples of linear models.
 
@@ -209,7 +212,62 @@ posterior <- fit_posterior(y ~ x + I(x**2), 1, prior, d)
 posterior
 ```
 
-### Predicting response variables
+## Constructing fitted model objects
+
+Now, we want to wrap fitted models in a class so we can write a constructor for fitting data. For fitted models, it is traditional to include the formula, the data, and the function call together with the fitted model, so we will put those as attributes in the objects. The constructor could look like this:
+
+```{r}
+blm <- function(formula, b, data, prior = NULL, a = NULL) {
+  
+  if (is.null(prior)) {
+    if (is.null(a)) stop("Without a prior you must provide a.")
+    prior <- prior_distribution(formula, a, data)
+    
+  } else {
+    if (inherits(prior, "blm")) {
+      prior <- prior$prior
+    }
+  }
+  if (!inherits(prior, "wdist")) {
+    stop("The provided prior does not have the expected type.")
+  }
+  
+  posterior <- fit_posterior(formula, b, prior, data)
+  
+  structure(
+    list(formula = formula,
+         data = model.frame(formula, data),
+         dist = posterior,
+         call = match.call()),
+    class = "blm"
+  )
+}
+```
+
+The tests at the beginning of the constructor allows us to specify the prior as either a normal distribution or a previously fitted `blm` object. If we get a prior distribution we probably should also check that this prior is compatible with the actual formula, but I will let you write such a check yourself to try that out.
+
+If we print objects fitted using the `blm` function, they will just be printed as a list, but we can provide our own `print` function by specialising the `print` generic function. Here, it is tradition to provide the function call used to specify the model, so that is all I will do for now.
+
+```{r}
+print.blm <- function(x, ...) {
+  print(x$call)
+}
+```
+
+We have to match the parameters of the generic function, which is why the arguments are `x` and `...`. All we do, however, is printing the `call` attribute of the object.
+
+Now, we can fit data and get a `blm` object like this:
+
+```{r}
+blm(y ~ x, a = 1, b = 1, data = d)
+```
+
+
+## Coefficients and confidence intervals
+
+
+
+## Predicting response variables
 
 When it comes to predicting response variables for new data, there is a little more work to be done for the model matrix. If we don't have the response variable when we create a model matrix, we will get an error, even though the model matrix doesn't actually contain a column with it. We can see this if we remove the `x` and `y` variables we used when creating the data frame earlier.
 
@@ -230,15 +288,18 @@ dd <- data.frame(x = rnorm(5))
 model.matrix(y ~ x + I(x**2), data = dd)
 ```
 
-This, of course, is a problem since we are interested in predicting response variables exactly when we do not have them. 
+This, of course, is a problem since we are interested in predicting response variables exactly when we do not have them. Ironically, considering that the model matrix never actually contains the response variable; nevertheless, this is how R works.
+
+To remove the response variable from a formula, before we construct a model matrix, we need to use the function `delete.response`. Unfortunately, this function does not work directly on formulas, but on so-called "terms" objects. We can translate a formula into its terms using the `terms` function. So to remove the terms from a formula, we need this construction:
 
 ```r
 delete.response(terms(y ~ x))
 ```
 
+The result is a `terms` object, but since the `terms` class is a specialisation of the `formula` class, we can use it directly with the `model.matrix` function to construct the model matrix:
+
 ```{r}
 model.matrix(delete.response(terms(y ~ x)), data = dd)
 ```
-
 
 

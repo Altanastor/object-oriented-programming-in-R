@@ -92,8 +92,8 @@ fit_posterior <- function(formula, b, prior, data) {
 }
 
 d <- {
-  x <- rnorm(5)
-  y <- 1.2 + 2 * x + rnorm(5)
+  x <- rnorm(50)
+  y <- 1.2 + 2 * x + rnorm(50)
   data.frame(x = x, y = y)
 }
 
@@ -122,6 +122,7 @@ blm <- function(formula, b, data, prior = NULL, a = NULL) {
     list(formula = formula,
          data = model.frame(formula, data),
          dist = posterior,
+         precision = b,
          call = match.call()),
     class = "blm"
   )
@@ -169,3 +170,80 @@ confint.blm <- function(object, parm, level = 0.95, ...) {
 }
 
 confint(model)
+
+predict.blm <- function(object, newdata, ...) {
+  updated_terms <- delete.response(terms(object$formula))
+  X <- model.matrix(updated_terms, data = newdata)
+  
+  predictions <- vector("numeric", length = nrow(X))
+  for (i in seq_along(predictions)) {
+    predictions[i] <- t(object$dist$mu) %*% X[i,]
+  }
+  predictions
+}
+
+d <- {
+  x <- rnorm(50)
+  y <- 0.2 + 1.4 * x + rnorm(50)
+  data.frame(x = x, y = y)
+}
+model <- blm(y ~ x, d, a = 1, b = 1)
+plot(d$y, predict(model, d),
+     xlab = "True responses",
+     ylab = "Predicted responses")
+
+fitted.blm <- function(object, ...) {
+  predict(object, newdata = object$data)
+}
+plot(d$y, fitted(model),
+     xlab = "True responses",
+     ylab = "Predicted responses")
+
+predict.blm <- function(object, newdata, 
+                        intervals = FALSE,
+                        level = 0.95,
+                        ...) {
+  
+  updated_terms <- delete.response(terms(object$formula))
+  X <- model.matrix(updated_terms, data = newdata)
+  
+  predictions <- vector("numeric", length = nrow(X))
+  for (i in seq_along(predictions)) {
+    predictions[i] <- t(object$dist$mu) %*% X[i,]
+  }
+  
+  if (!intervals) return(predictions)
+  
+  S <- model$dist$S
+  b <- model$precision
+  sds <- vector("numeric", length = nrow(X))
+  for (i in seq_along(predictions)) {
+    sds[i] <- sqrt(1/b + t(X[i,]) %*% S %*% X[i,])
+  }
+
+  lower_q <- qnorm(p = (1-level)/2, 
+                   mean = predictions, 
+                   sd = sds)
+  upper_q <- qnorm(p = 1 - (1-level)/2, 
+                   mean = predictions, 
+                   sd = sds)
+  
+  intervals <- cbind(lower_q, predictions, upper_q)
+  colnames(intervals) <- c("lower", "mean", "upper")
+  as.data.frame(intervals)
+}
+fitted.blm <- function(object, ...) {
+  predict(object, newdata = object$data, ...)
+}
+
+require(ggplot2)
+predictions <- fitted(model, intervals = TRUE)
+ggplot(cbind(data.frame(y = d$y), predictions),
+       aes(x = y, y = mean)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lower, ymax = upper)) +
+  geom_abline(slope = 1) + 
+  xlab("True responses") +
+  ylab("Predictions") +
+  theme_minimal()
+

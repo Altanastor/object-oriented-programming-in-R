@@ -354,5 +354,160 @@ The result is a `terms` object, but since the `terms` class is a specialisation 
 model.matrix(delete.response(terms(y ~ x)), data = dd)
 ```
 
+Now, for actually predicting data, we traditionally use the `predict` generic function. This function has the signature
 
-## Plotting
+```r
+function(object, ...)
+```
+
+Which, quite frankly, isn't that useful. We can add to it, though, as for example the `lm` class does, so we can add a parameter, `newdata` to it. From `newdata` we will construct a model matrix and make predictions for the data in this. If we just want point estimates for the new data, we can simply take the inner product of the mean weights and each row in the model matrix, so we can implement the `predict` function like this:
+
+```{r}
+predict.blm <- function(object, newdata, ...) {
+  updated_terms <- delete.response(terms(object$formula))
+  X <- model.matrix(updated_terms, data = newdata)
+  
+  predictions <- vector("numeric", length = nrow(X))
+  for (i in seq_along(predictions)) {
+    predictions[i] <- t(object$dist$mu) %*% X[i,]
+  }
+  predictions
+}
+
+predict(model, d)
+```
+
+To check the model, we can plot the predicted values against the true response values. With the data we have used up till now, though, with only five data points, we don't expect the predictions to particularly good, and we don't expect such a plot to show much, but we can try with a few more data points, see +@fig:true-versus-predicted.
+
+```{r true-versus-predicted, fig.cap = "True versus predicted values"}
+d <- {
+  x <- rnorm(50)
+  y <- 0.2 + 1.4 * x + rnorm(50)
+  data.frame(x = x, y = y)
+}
+model <- blm(y ~ x, d, a = 1, b = 1)
+plot(d$y, predict(model, d),
+     xlab = "True responses",
+     ylab = "Predicted responses")
+```
+
+Predicting values for the original data is so common that there is another generic function for doing this, called `fitted`. We can implement it like this:
+
+```{r}
+fitted.blm <- function(object, ...) {
+  predict(object, newdata = object$data, ...)
+}
+```
+
+With this function, we could then create the plot as:
+
+```r
+plot(d$y, fitted(model),
+     xlab = "True responses",
+     ylab = "Predicted responses")
+```
+
+We can, of course, do more than simply predict point estimates. We have a distribution of weights which means that the slope and intercept of a line isn't fixed. They are, conceptually at least, drawn from a distribution. Slight changes in the slope won't have much of an impact on how certain we are in the predictions near the main mass of the data, but data points further towards the edges of the data will have a larger uncertainty because of this. We can take the distribution into account when we make predictions to get error bars for the predictions. If `X` is the model matrix and `S` the covariance matrix for the posterior, then the variance for the i'th prediction is given by:
+
+```r
+1/b + t(X[i,]) %*% S %*% X[i,]
+```
+
+We don't have the precision parameter, `b`, stored in the fitted model object, so if we wan't to get error bars, we need to keep that around. So update your `blm` function to return this structure:
+
+```{r, echo=FALSE}
+blm <- function(formula, b, data, prior = NULL, a = NULL) {
+  
+  if (is.null(prior)) {
+    if (is.null(a)) stop("Without a prior you must provide a.")
+    prior <- prior_distribution(formula, a, data)
+    
+  } else {
+    if (inherits(prior, "blm")) {
+      prior <- prior$prior
+    }
+  }
+  if (!inherits(prior, "wdist")) {
+    stop("The provided prior does not have the expected type.")
+  }
+  
+  posterior <- fit_posterior(formula, b, prior, data)
+  
+  structure(
+    list(formula = formula,
+         data = model.frame(formula, data),
+         dist = posterior,
+         precision = b,
+         call = match.call()),
+    class = "blm"
+  )
+}
+```
+
+```r
+  structure(
+    list(formula = formula,
+         data = model.frame(formula, data),
+         dist = posterior,
+         precision = b,
+         call = match.call()),
+    class = "blm"
+  )
+```
+
+Now, we can extend our `predict` function with an option that, if `TRUE`, returns intervals as well:
+
+```{r}
+predict.blm <- function(object, newdata, 
+                        intervals = FALSE,
+                        level = 0.95,
+                        ...) {
+  
+  updated_terms <- delete.response(terms(object$formula))
+  X <- model.matrix(updated_terms, data = newdata)
+  
+  predictions <- vector("numeric", length = nrow(X))
+  for (i in seq_along(predictions)) {
+    predictions[i] <- t(object$dist$mu) %*% X[i,]
+  }
+  
+  if (!intervals) return(predictions)
+  
+  S <- model$dist$S
+  b <- model$precision
+  sds <- vector("numeric", length = nrow(X))
+  for (i in seq_along(predictions)) {
+    sds[i] <- sqrt(1/b + t(X[i,]) %*% S %*% X[i,])
+  }
+
+  lower_q <- qnorm(p = (1-level)/2, 
+                   mean = predictions, 
+                   sd = sds)
+  upper_q <- qnorm(p = 1 - (1-level)/2, 
+                   mean = predictions, 
+                   sd = sds)
+  
+  intervals <- cbind(lower_q, predictions, upper_q)
+  colnames(intervals) <- c("lower", "mean", "upper")
+  as.data.frame(intervals)
+}
+
+model <- blm(y ~ x, d, a = 1, b = 1)
+```
+
+With this `predict` function, we can plot error bars around our predictions as well, see +@fig:predictions-with-intervals. In the figure, I also plot the $x = y$ line. If we make accurate predictions, the point should lie on this line. Since there is some stochasticity in the data, we don't expect to be exactly on it, but we do expect to overlap the line 95% of the time.
+
+```{r predictions-with-intervals, fig.cap = "Predictions versus true values with confidence intervals."}
+require(ggplot2)
+predictions <- fitted(model, intervals = TRUE)
+ggplot(cbind(data.frame(y = d$y), predictions),
+       aes(x = y, y = mean)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lower, ymax = upper)) +
+  geom_abline(slope = 1) + 
+  xlab("True responses") +
+  ylab("Predictions") +
+  theme_minimal()
+```
+
+There is, of course, much more we can do with a statistical model, and more generic functions we could add to it to provide a uniform interface to a class of models, but I hope this example has at least given you an impression of how representing a model as a class can be useful.

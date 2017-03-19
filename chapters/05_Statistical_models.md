@@ -39,7 +39,7 @@ sample_weights <- function(n, distribution) {
 
 ```
 
-We can try to sample some lines from the prior distribution and plot them. We can, of course, plot the sample `w` vectors as points in the plane, but since they really represent lines, we will display them as such.
+We can try to sample some lines from the prior distribution and plot them. We can, of course, plot the sample `w` vectors as points in the plane, but since they really represent lines, we will display them as such, see +@fig:sampling_prior.
 
 ```{r, sampling_prior, fig.cap="Samples from the prior of lines."}
 prior <- prior_distribution(1)
@@ -58,8 +58,8 @@ plot_lines(w)
 When we observe data in the form of matching `x` and `y` values, we must updated the `w` vector to reflect this, which means updating the distribution of the weights. I won't derive the math, this is not a math textbook after all, but if `mu0` is the prior mean and `S0` the prior covariance matrix, then the posterior mean and covariance matrix are computed thus:
 
 ```r
-S = solve(S0 + b * t(X) %*% X)
-mu = S %*% (solve(S0) %*% mu0 + b * t(X) %*% y)
+S <- solve(S0 + b * t(X) %*% X)
+mu <- S %*% (solve(S0) %*% mu0 + b * t(X) %*% y)
 ```
 
 It is a little bit of linear algebra that involves the prior distribution and the observed values. The parameters we haven't seen before in these expressions are `b` and `X`. The former is the precision of the error terms---which we assume to be know and represent as this hyper parameter---and the latter captures the `x` values. We cannot use `x` alone because we want to use two weights to represent lines. When we write `w[1] + w[2] * x[i]` for the estimate of `y[i]`, we can think of it as the vector product of `w` and `c(0,x[i])`, which is exactly what we do. We represent all `x[i]` as rows `c(0,x[i])` in the matrix `X`. So we estimate `y[i] = w[1] * X[i, 1] + w[2] * X[I, 2]` in this notation, or `y = X %*% w`.
@@ -68,19 +68,19 @@ As a fitting function, we can write it as this:
 
 ```{r}
 fit_posterior <- function(x, y, b, prior) {
-  mu0 = prior$mu
-  S0 = prior$S
+  mu0 <- prior$mu
+  S0 <- prior$S
   
-  X = matrix(c(rep(1, length(x)), x), ncol = 2)
+  X <- matrix(c(rep(1, length(x)), x), ncol = 2)
   
-  S = solve(S0 + b * t(X) %*% X)
-  mu = S %*% (solve(S0) %*% mu0 + b * t(X) %*% y)
+  S <- solve(S0 + b * t(X) %*% X)
+  mu <- S %*% (solve(S0) %*% mu0 + b * t(X) %*% y)
   
   weight_distribution(mu = mu, S = S)
 }
 ```
 
-We can try to plot some points, fit the model to these, and then plot lines sampled from the posterior. These should fall around the points now, unlike the lines sampled from the prior. The more points we use to fit the model, the tighter lines sampled from the posterior will fall around the points.
+We can try to plot some points, fit the model to these, and then plot lines sampled from the posterior. These should fall around the points now, unlike the lines sampled from the prior. The more points we use to fit the model, the tighter lines sampled from the posterior will fall around the points, see +@fig:sampling_posterior.
 
 ```{r, sampling_posterior, fig.cap = "Samples of posterior lines."}
 x <- rnorm(20)
@@ -163,8 +163,8 @@ With that machinery in place, we can generalise our distributions and model fitt
 ```{r}
 prior_distribution <- function(formula, a, data) {
   n <- ncol(model.matrix(formula, data = data))
-  mu = rep(0, n)
-  S = diag(1/a, nrow = n, ncol = n)
+  mu <- rep(0, n)
+  S <- diag(1/a, nrow = n, ncol = n)
   weight_distribution(mu, S)
 }
 ```
@@ -175,13 +175,13 @@ The function for fitting the data changes less, though. It just uses the `model.
 
 ```{r}
 fit_posterior <- function(formula, b, prior, data) {
-  mu0 = prior$mu
-  S0 = prior$S
+  mu0 <- prior$mu
+  S0 <- prior$S
   
-  X = model.matrix(formula, data = data)
+  X <- model.matrix(formula, data = data)
   
-  S = solve(S0 + b * t(X) %*% X)
-  mu = S %*% (solve(S0) %*% mu0 + b * t(X) %*% y)
+  S <- solve(S0 + b * t(X) %*% X)
+  mu <- S %*% (solve(S0) %*% mu0 + b * t(X) %*% y)
   
   weight_distribution(mu = mu, S = S)
 }
@@ -211,15 +211,32 @@ posterior
 
 ### Predicting response variables
 
+When it comes to predicting response variables for new data, there is a little more work to be done for the model matrix. If we don't have the response variable when we create a model matrix, we will get an error, even though the model matrix doesn't actually contain a column with it. We can see this if we remove the `x` and `y` variables we used when creating the data frame earlier.
+
 ```{r}
 rm(x) ; rm(y)
 ```
 
+We are fine if we build a model matrix from the data frame that has both `x` and `y`:
+
 ```{r}
 model.matrix(y ~ x + I(x**2), data = d)
+```
+
+If we create a data frame that only has `x` values, though, we get an error:
+
+```{r}
 dd <- data.frame(x = rnorm(5))
 model.matrix(y ~ x + I(x**2), data = dd)
+```
 
+This, of course, is a problem since we are interested in predicting response variables exactly when we do not have them. 
+
+```r
+delete.response(terms(y ~ x))
+```
+
+```{r}
 model.matrix(delete.response(terms(y ~ x)), data = dd)
 ```
 

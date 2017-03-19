@@ -28,7 +28,7 @@ book.epub:  $(SOURCE_CHAPTERS) Makefile
 book.mobi: book.epub
 	./kindlegen book.epub -o book.mobi
 
-all: book.pdf book.epub book.mobi
+all: book.pdf book.epub book.mobi print_book.pdf
 
 clean:
 	rm book.pdf book.epub book.mobi

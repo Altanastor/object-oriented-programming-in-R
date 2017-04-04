@@ -1,6 +1,8 @@
 # Object-oriented programming in R
 
-This is the source text to my book [Object-oriented programming in R](https://leanpub.com/oop-in-r). If you want to compile it yourself feel free to and feel free to use it for free as well. If you want to support my writing, though, please consider buying the book at Leanpub (you can set your own price). This helps me recover the costs involved with writing and publishing books.
+This is the source text to my book [Object-oriented programming in R](https://www.amazon.com/gp/product/B01MUBRSTS/ref=as_li_tl?ie=UTF8&camp=1789&creative=9325&creativeASIN=B01MUBRSTS&linkCode=as2&tag=wpamazify-21&linkId=e306d89a6bb8aa553022d66381ff0c98). If you want to support my writing, though, please consider buying the book at Amazon. This helps me recover the costs involved with writing and publishing books.
+
+![Cover](cover.png)
 
 Proofreading before making a paperback:
 

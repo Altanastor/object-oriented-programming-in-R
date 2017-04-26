@@ -19,6 +19,9 @@ book.pdf: $(PDF_CHAPTERS)
 print_book.pdf: $(PDF_CHAPTERS)
 		$(PANDOC) $(PANDOC_PRINT_OPTS) -o $@ $(PDF_CHAPTERS)
 
+book.docx: $(PDF_CHAPTERS)
+		$(PANDOC) $(PANDOC_PRINT_OPTS) -o $@ $(PDF_CHAPTERS)
+
 %.md: %.Rmd
 	../runknitr.sh $<
 
